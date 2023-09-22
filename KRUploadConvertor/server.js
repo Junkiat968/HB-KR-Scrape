@@ -1,9 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const Docxtemplater = require('docxtemplater');
-const PizZip = require('pizzip');
+const JSZip = require('jszip');
 const fs = require('fs');
-const path = require('path');
 const app = express();
 const port = 3000;
 
@@ -14,6 +12,13 @@ const upload = multer({ storage: storage });
 // Serve static files from the "public" directory
 app.use(express.static('public'));
 
+// Function to remove Korean characters from text
+function removeKoreanCharacters(text) {
+  // Regular expression to match Korean characters
+  const koreanRegex = /[가-힣]/g;
+  return text.replace(koreanRegex, '');
+}
+
 // Handle file uploads
 app.post('/upload', upload.single('file'), (req, res) => {
   try {
@@ -23,16 +28,22 @@ app.post('/upload', upload.single('file'), (req, res) => {
 
     const docBuffer = req.file.buffer;
 
-    // Create a new Docxtemplater instance with pizzip
-    const zip = new PizZip(docBuffer);
-    const doc = new Docxtemplater().loadZip(zip);
+    // Load the Word document using JSZip
+    const zip = new JSZip();
+    zip.load(docBuffer);
 
-    // Perform any template variable replacements here if needed
-    // For example: doc.setData({ variableName: 'replacementText' });
-    // doc.render();
+    // Access the document content (Word document is in "word/document.xml")
+    const content = zip.file('word/document.xml').asText();
 
-    // Send the processed Word document back to the client
-    const outputBuffer = doc.getZip().generate({ type: 'nodebuffer' });
+    // Remove Korean characters from the content
+    const modifiedContent = removeKoreanCharacters(content);
+
+    // Update the content in the Word document
+    zip.file('word/document.xml', modifiedContent);
+
+    // Generate the updated Word document
+    const outputBuffer = zip.generate({ type: 'nodebuffer' });
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', 'attachment; filename=processed.docx');
     res.send(outputBuffer);
