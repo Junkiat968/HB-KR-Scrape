@@ -1,46 +1,43 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { franc } from 'franc-min';
 import { download } from 'downloadjs';
+import { promisify } from 'util';
+const JSZip = require('jszip/dist/jszip.min.js'); // Use the downgraded version
+
+const Docxtemplater = require('docxtemplater');
 
 const Scraper = () => {
-  const [url, setUrl] = useState('');
   const [result, setResult] = useState('');
 
-  const handleChange = (e) => {
-    setUrl(e.target.value);
-  };
-
-  const handleScrape = async () => {
+  const handleFileUpload = async (e) => {
     try {
-      const response = await axios.get(url);
+      const file = e.target.files[0];
 
-      const htmlText = response.data;
-console.log(htmlText)
-      // Extract text content
-      const textContent = htmlText.replace(/<[^>]*>?/gm, '');
+      // Read the uploaded Word document
+      const reader = new FileReader();
 
-      console.log("before filter", textContent)
-      // Detect and filter out Korean words
-      const re = /[\u3131-\uD79D]/ugi
-// console.log("abcde".match(re)) // null
-// console.log("안녕".match(re)) 
-      const filteredText = textContent
-        .split(/\s+/)
-        .filter((word) => {
-            // console.log("word match",word)
-            // console.log("T/F",(word.match(re) == null))
-            return (word.match(re) == null)
-        //   const lang = franc(word, { minLength: 1 });
-        //   return lang !== 'kor'; // Filter out Korean words
-        })
-        .join(' ');
+      reader.onload = async () => {
+        const docBuffer = reader.result;
 
-      // Set the result
-      setResult(filteredText);
-      console.log("after filter",filteredText)
+        // Extract text content from the Word document using Docxtemplater
+        const textContent = await extractTextFromWordDocument(docBuffer);
+
+        // Detect and filter out Korean words
+        const re = /[\u3131-\uD79D]/ugi;
+        const filteredText = textContent
+          .split(/\s+/)
+          .filter((word) => word.match(re) === null)
+          .join(' ');
+
+        // Set the result
+        setResult(filteredText);
+      };
+
+      if (file) {
+        reader.readAsArrayBuffer(file);
+      }
     } catch (error) {
-      console.error('Error scraping data:', error);
+      console.error('Error processing the document:', error);
     }
   };
 
@@ -54,13 +51,45 @@ console.log(htmlText)
     a.click();
     window.URL.revokeObjectURL(url);
   };
-  
+
+  const extractTextFromWordDocument = async (docBuffer) => {
+    try {
+      // Convert the ArrayBuffer to a Uint8Array
+      const uint8Array = new Uint8Array(docBuffer);
+
+      // Create a ZIP archive
+      const zip = new JSZip();
+      zip.load(uint8Array);
+
+      // Extract the document.xml from the Word document
+      const documentXml = zip.file('word/document.xml').asText();
+
+      // Parse the XML using Docxtemplater
+      const doc = new Docxtemplater();
+      doc.loadZip(zip);
+
+      // Compile and render the document
+      doc.render();
+
+      // Extract text content
+      const textContent = doc.getFullText();
+      console.log(textContent)
+
+      return textContent;
+    } catch (error) {
+      console.error('Error extracting text from the document:', error);
+      return '';
+    }
+  };
 
   return (
     <div>
-      <input type="text" placeholder="Enter HTML URL" onChange={handleChange} />
-      <button onClick={handleScrape}>Scrape Text</button>
+      <input type="file" accept=".docx" onChange={handleFileUpload} />
       <button onClick={handleDownload}>Download Filtered Text</button>
+      <div>
+        <strong>Filtered Text:</strong>
+        <pre>{result}</pre>
+      </div>
     </div>
   );
 };
