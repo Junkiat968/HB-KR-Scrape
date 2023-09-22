@@ -1,0 +1,12 @@
+{
+  "name": "hb-kr-scrape",
+  "version": "1.0.0",
+  "description": "C:\\Users\\ngjun\\Downloads\\scrape\\HB-KR-Scrape\\web-scraper> **npm i** <br>\r C:\\Users\\ngjun\\Downloads\\scrape\\HB-KR-Scrape\\web-scraper> **npm start**",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
